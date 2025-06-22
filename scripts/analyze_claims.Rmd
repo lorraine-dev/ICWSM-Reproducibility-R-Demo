@@ -1,0 +1,218 @@
+---
+title: "Reproducible Analysis of Politician Claims: An R Demo for R2CASS@ICWSM"
+author: "Lorraine Saju" # Updated with your name
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+This R Markdown document demonstrates a reproducible analysis of a subset of the LIAR dataset, focusing on politician statements and their fact-checking truth ratings. This analysis is designed to be run seamlessly via Binder, ensuring reproducibility across different environments.
+
+**Goal:** To load a dataset of politician claims, analyze the distribution of their truth ratings, and visualize the results.
+
+## 1. Setup and Data Loading
+
+First, we'll load the necessary libraries (`tidyverse` for data manipulation and plotting, which includes `dplyr`, `ggplot2`, `readr`, etc.). Then we'll load our dataset.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(knitr)
+library(viridis)
+
+# Define column names as per LIAR dataset README, since our TSV has no header
+column_names <- c(
+  'ID', 'label', 'statement', 'subjects', 'speaker', 'speaker_job_title',
+  'state_info', 'party_affiliation', 'barely_true_counts', 'false_counts',
+  'half_true_counts', 'mostly_true_counts', 'pants_on_fire_counts', 'context'
+)
+
+# Initialize df outside tryCatch for scope
+df <- NULL
+
+# Wrap the data loading in tryCatch for conditional messages
+tryCatch({
+  df <- read_tsv("../data/dataset.tsv", col_names = FALSE) %>%
+    setNames(column_names)
+
+  # If successfully loaded and has rows, print success message
+  if (!is.null(df) && nrow(df) > 0) {
+    cat("Dataset loaded successfully!\n") 
+    cat(paste0("Number of claims: ", nrow(df), "\n"))
+  } else {
+    # This block handles cases where read_tsv succeeds but returns no data
+    cat("Error: Dataset loaded but appears empty or invalid.\n")
+  }
+
+}, error = function(e) {
+  # This block handles actual errors during read_tsv
+  cat("Error loading dataset: **", e$message, "**\n\n") # Bold error message
+  cat("Please ensure `../data/dataset.tsv` exists and is correctly formatted.\n")
+})
+```
+
+
+### Inspecting the Data
+
+Here are the first 5 rows of the dataset:
+
+```{r print_head}
+# Ensure df exists before trying to print head
+if (!is.null(df) && nrow(df) > 0) {
+  df %>%
+    head() %>%
+    kable(caption = "First 5 Rows of the LIAR Dataset")
+} else {
+  cat("Data not available for inspection due to loading error.\n")
+}
+```
+## 2. Analyze Distribution of Truth Ratings
+
+Let's examine how many claims fall into each truth rating category (`label` column).
+
+### Distribution of Truth Ratings
+
+```{r truth_rating_distribution}
+truth_rating_counts <- df %>%
+  count(label) %>%
+  arrange(label) %>%
+  # Optional: Rename columns for better readability in the table
+  rename(`Truth Rating` = label, `Number of Claims` = n)
+
+truth_rating_counts %>%
+  kable(caption = "Count of Claims by Truth Rating")
+```
+
+## 3. Visualize Truth Rating Distribution
+A bar chart provides a clear visual summary of the truth rating distribution. We'll order the labels for better readability.
+
+```{r}
+# Define the order for labels to ensure consistent plotting
+label_order <- c("pants-fire", "false", "barely-true", "half-true", "mostly-true", "true")
+
+# Create a factor with the desired order
+df$label_ordered <- factor(df$label, levels = label_order)
+
+plot_truth_ratings <- df %>%
+  ggplot(aes(x = label_ordered, fill = label_ordered)) +
+  geom_bar() +
+  labs(
+    title = "Distribution of Truth Ratings for Politician Claims",
+    x = "Truth Rating",
+    y = "Number of Claims",
+    fill = "Truth Rating"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "RdYlGn")
+
+print(plot_truth_ratings)
+
+# Save the plot
+ggsave("truth_ratings_distribution.png", plot_truth_ratings, path = ".", dpi = 300)
+```
+
+## 4. Analyze Distribution of Party Affiliation
+
+Next, let's look at the distribution of `party_affiliation` among the speakers.
+
+### Distribution of Party Affiliations
+
+```{r party_affiliation_distribution}
+party_affiliation_counts <- df %>%
+  count(party_affiliation) %>%
+  arrange(desc(n)) %>%
+  # Optional: Rename columns for better readability in the table
+  rename(`Party Affiliation` = party_affiliation, `Number of Claims` = n)
+
+party_affiliation_counts %>%
+  kable(caption = "Count of Claims by Party Affiliation")
+```
+
+## 5. Visualize Party Affiliation Distribution
+A bar chart to visualize the distribution of speaker party affiliations.
+
+```{r party_affiliation_plot, fig.width=12, fig.height=7}
+# Ensure df exists and has data before proceeding with plotting
+if (!is.null(df) && nrow(df) > 0) {
+  plot_party_affiliation <- df %>%
+    # Filter out NA and "none" for cleaner visualization
+    filter(!is.na(party_affiliation), party_affiliation != "none") %>%
+    mutate(
+      # Group parties with small counts into 'Other' category
+      # 'n = 10' will keep the 10 most frequent parties and lump the rest
+      party_affiliation_grouped = fct_lump_n(fct_infreq(party_affiliation), n = 10, other_level = "Other (Lumped)")
+    ) %>%
+    ggplot(aes(x = party_affiliation_grouped, fill = party_affiliation_grouped)) + # Use the new grouped factor for x and fill
+    geom_bar() +
+    labs(
+      title = "Distribution of Speaker Party Affiliations (Top 10 + Other)", # Updated title
+      x = "Party Affiliation",
+      y = "Number of Claims",
+      fill = "Party"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_fill_viridis_d(option = "plasma")
+
+  print(plot_party_affiliation)
+
+  # Save the plot
+  ggsave("party_affiliation_distribution.png", plot_party_affiliation, path = ".", dpi = 300)
+} else {
+  cat("Party affiliation plot not generated: Data not available due to loading error.\n")
+}
+```
+
+## 6. Relationship between Party Affiliation and Truth Ratings
+Finally, let's explore how truth ratings vary across different party affiliations using a stacked bar chart.
+
+```{r party_truth_relationship_plot, fig.width=14, fig.height=8}
+if (!is.null(df) && nrow(df) > 0) {
+  # Apply the same party grouping logic from Section 5 for consistency and readability
+  # Also filter out NA and "none" for party affiliations as done previously
+  plot_party_vs_truth <- df %>%
+    filter(!is.na(party_affiliation), party_affiliation != "none") %>%
+    mutate(
+      party_affiliation_grouped = fct_lump_n(fct_infreq(party_affiliation), n = 10, other_level = "Other (Lumped)")
+    ) %>%
+    # Use the ordered truth labels (label_ordered) created in Section 3
+    ggplot(aes(x = party_affiliation_grouped, fill = label_ordered)) +
+    geom_bar(position = "fill") + # Use position="fill" for proportions (each bar sums to 100%)
+    labs(
+      title = "Truth Ratings Distribution by Party Affiliation (Proportion, Top 10 Parties)", # Updated title
+      x = "Party Affiliation",
+      y = "Proportion of Claims",
+      fill = "Truth Rating"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "right", # Move legend outside the plot area to the right
+      legend.box.just = "top" # Align legend to the top of its box
+    ) +
+    scale_fill_brewer(palette = "RdYlGn") # Red for false, Green for true (consistent with Section 3)
+
+  print(plot_party_vs_truth)
+
+  # Save the plot
+  ggsave("party_vs_truth_stacked.png", plot_party_vs_truth, path = ".", dpi = 300)
+} else {
+  cat("Party affiliation vs. truth rating plot not generated: Data not available due to loading error.\n")
+}
+```
+
+## Conclusion
+
+This notebook demonstrates how to load, analyze, and visualize data related to politician claims and their truth ratings in a reproducible Python environment. By packaging this with Binder, we ensure anyone can rerun this analysis with ease.
+
+Feel free to modify the code, add new analyses, or explore other aspects of the dataset!
+
+## Session Information
+
+This section provides details about the R session, including the R version and all loaded package versions, to aid in reproducibility.
+
+```{r session_info, echo=TRUE, message=FALSE, warning=FALSE}
+sessionInfo()
+```
