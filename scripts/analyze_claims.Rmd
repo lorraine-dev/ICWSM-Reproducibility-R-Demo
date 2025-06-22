@@ -18,9 +18,13 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 ```{r}
 # Load necessary libraries
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(forcats) # For fct_lump_n, fct_infreq
 library(knitr)
 library(viridis)
+library(RColorBrewer)
 
 # Define column names as per LIAR dataset README, since our TSV has no header
 column_names <- c(

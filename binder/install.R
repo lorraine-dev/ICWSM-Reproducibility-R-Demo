@@ -1,1 +1,1 @@
-install.packages(c("tidyverse", "knitr", "viridis", "RColorBrewer"), repos = "https://cran.microsoft.com/snapshot/2024-05-31/")
+install.packages(c("dplyr", "ggplot2", "readr", "knitr", "viridis", "RColorBrewer", "forcats"), repos = "https://cran.microsoft.com/snapshot/2024-05-31/")
