@@ -10,7 +10,7 @@ Our goal is to demonstrate that with proper configuration, anyone can launch and
 
 The easiest way to explore this project is to launch it directly on MyBinder.org. This will open an interactive RStudio environment in your web browser, pre-loaded with all the necessary R packages and the dataset.
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/lorraine-dev/ICWSM-Reproducibility-R-Demo/HEAD)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/lorraine-dev/ICWSM-Reproducibility-R-Demo/HEAD?urlpath=rstudio)
 
 **Click the "Launch Binder" badge above to get started!**
 
